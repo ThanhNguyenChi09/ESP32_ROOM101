@@ -40,7 +40,7 @@ String device_id = "ROOM101";
 const char *mqtt_clientId = "ROOM101";
 
 // const char* mqtt_server = "10.130.42.129"; //HCMUT02
-const char *mqtt_server = "192.168.1.6"; // ROOM 904
+const char *mqtt_server = "192.168.1.3"; // ROOM 904
 // const char *mqtt_server = "172.20.10.3"; // ROOM 904
 
 // MQTT Port
@@ -167,26 +167,13 @@ void callback(char *topic, byte *payload, unsigned int length)
       mySerial.print("30");
     }
   }
+
   if (topicStr.equals("Auto_Mode"))
   {
     if (value == 1)
     {
       Serial.println("Auto Mode ON");
-      Serial.print("Lux value: ");
-      Serial.println(lux);
-
-      if (lux <= 50.0)
-      {
-        Serial.println("Turning on lights");
-        mySerial.print("11");
-        autoModeActive = true;
-        // mySerial.print("21");
-      }
-      else if (lux > 50)
-      {
-        Serial.println("Turning on lights");
-        mySerial.print("10");
-      }
+      autoModeActive = true;
     }
     else if (value == 0)
     {
@@ -194,6 +181,23 @@ void callback(char *topic, byte *payload, unsigned int length)
       autoModeActive = false;
     }
   }
+}
+
+void Auto_Mode(){
+    if (autoModeActive == true)
+    {
+      if (lux <= 50.0)
+      {
+        Serial.println("Turning on lights");
+        mySerial.print("11");
+        // mySerial.print("21");
+      }
+      else if (lux > 50.0)
+      {
+        Serial.println("Turning off lights");
+        mySerial.print("10");
+      }
+    }
 }
 // } else if (topicStr.equals("device/fan1")) {
 //   if (value == 1) {
@@ -248,10 +252,6 @@ void setup()
   Serial.begin(115200);
   mySerial.begin(500000, SERIAL_8N1, 16, 17);
 
-  pinMode(LIGHT_11, OUTPUT);
-  pinMode(LIGHT_12, OUTPUT);
-  pinMode(LED_BUILTIN, OUTPUT);
-
   dht.begin();
   pinMode(TEMT_PIN, INPUT);
 
@@ -264,7 +264,7 @@ void loop()
 {
   // TemtGettingData
   lux = analogRead(TEMT_PIN) * 0.244200; // 1000 / 4095 = 0.244200
-
+  
   // DHT11GettingData
   float DHT_Temperature = dht.readTemperature();
   float DHT_Humidity = dht.readHumidity();
@@ -280,37 +280,76 @@ void loop()
     Serial.println("DHT Humidity: " + String(DHT_Humidity) + " %");
     Serial.println("Light Intensity: " + String(lux) + " lux");
 
+    //AutoMode -> ON
+    Auto_Mode();
+
     String recived = mySerial.readStringUntil('\n');
-    if (recived == "11on")
+      if (recived == "11on")
     {
       light_11_Status = 1;
+      String pkt4 = "{";
+      pkt4 += "\"device_id\": \"ROOM101\", ";
+      pkt4 += "\"type\": \"Light11\", ";
+      pkt4 += "\"value\": " + String(light_11_Status) + "";
+      pkt4 += "}";
+      mqtt_publish((char *)pkt4.c_str());
     }
     if (recived == "11off")
     {
       light_11_Status = 0;
+      String pkt4 = "{";
+      pkt4 += "\"device_id\": \"ROOM101\", ";
+      pkt4 += "\"type\": \"Light11\", ";
+      pkt4 += "\"value\": " + String(light_11_Status) + "";
+      pkt4 += "}";
+      mqtt_publish((char *)pkt4.c_str());
     }
 
     if (recived == "12on")
     {
       light_12_Status = 1;
+      String pkt5 = "{";
+      pkt5 += "\"device_id\": \"ROOM101\", ";
+      pkt5 += "\"type\": \"Light12\", ";
+      pkt5 += "\"value\": " + String(light_12_Status) + "";
+      pkt5 += "}";
+      mqtt_publish((char *)pkt5.c_str());
     }
     if (recived == "12off")
     {
       light_12_Status = 0;
+      String pkt5 = "{";
+      pkt5 += "\"device_id\": \"ROOM101\", ";
+      pkt5 += "\"type\": \"Light12\", ";
+      pkt5 += "\"value\": " + String(light_12_Status) + "";
+      pkt5 += "}";
+      mqtt_publish((char *)pkt5.c_str());
     }
 
     if (recived == "fanOn")
     {
       fan_1_Status = 1;
+      String pkt6 = "{";
+      pkt6 += "\"device_id\": \"ROOM101\", ";
+      pkt6 += "\"type\": \"Fan1\", ";
+      pkt6 += "\"value\": " + String(fan_1_Status) + "";
+      pkt6 += "}";
+      mqtt_publish((char *)pkt6.c_str());
     }
     if (recived == "fanOff")
     {
       fan_1_Status = 0;
+      String pkt6 = "{";
+      pkt6 += "\"device_id\": \"ROOM101\", ";
+      pkt6 += "\"type\": \"Fan1\", ";
+      pkt6 += "\"value\": " + String(fan_1_Status) + "";
+      pkt6 += "}";
+      mqtt_publish((char *)pkt6.c_str());
     }
+
     Serial.println("Light_11: " + String(light_11_Status) + " " + String(light_11_Status == 1 ? "ON" : "OFF"));
     Serial.println("Light_12: " + String(light_12_Status) + " " + String(light_12_Status == 1 ? "ON" : "OFF"));
     Serial.println("Fan_1: " + String(fan_1_Status) + " " + String(fan_1_Status == 1 ? "ON" : "OFF"));
-
     delay(1000);
 
     // Devices State Sync Request
@@ -342,27 +381,6 @@ void loop()
       pkt3 += "\"value\": " + String(lux) + "";
       pkt3 += "}";
       mqtt_publish((char *)pkt3.c_str());
-
-      String pkt4 = "{";
-      pkt4 += "\"device_id\": \"ROOM101\", ";
-      pkt4 += "\"type\": \"Light11\", ";
-      pkt4 += "\"value\": " + String(light_11_Status) + "";
-      pkt4 += "}";
-      mqtt_publish((char *)pkt4.c_str());
-
-      String pkt5 = "{";
-      pkt5 += "\"device_id\": \"ROOM101\", ";
-      pkt5 += "\"type\": \"Light12\", ";
-      pkt5 += "\"value\": " + String(light_12_Status) + "";
-      pkt5 += "}";
-      mqtt_publish((char *)pkt5.c_str());
-
-      String pkt6 = "{";
-      pkt6 += "\"device_id\": \"ROOM101\", ";
-      pkt6 += "\"type\": \"Fan1\", ";
-      pkt6 += "\"value\": " + String(fan_1_Status) + "";
-      pkt6 += "}";
-      mqtt_publish((char *)pkt6.c_str());
     }
   }
   if (!mqtt_client.loop())
